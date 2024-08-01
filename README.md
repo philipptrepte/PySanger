@@ -9,12 +9,18 @@ Here, I developed a Python module to interpret the Sanger sequencing result. Wit
 ## Installation
 1.  Install the following Python packages by  
 	
+	```sh
+	conda create -n PySanger
+	conda activate PySanger
+	conda config --add channels defaults
+	conda config --add channels bioconda
+	conda config --add channels conda-forge
+	
+	conda install matplotlib seaborn numpy biopython pandas logomaker snapgene-reader
 	```
-	pip install matplotlib
-	pip install numpy
-	pip install biopython
-	pip install pandas
-	pip install logomaker (optional) 
+
+	```sh
+	git clone https://github.com/philipptrepte/PySanger.git
 	```
 
 2.  Set PYTHONPATH to the directory where you cloned the repository.
