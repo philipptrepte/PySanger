@@ -137,10 +137,6 @@ def _colorbar(ax, ref, matches=None, char=True, fontsize=2):
     #ax.patch.set_alpha(0.0)
     return ax
 
-#template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna"
-#template="AGCCGGCTGGCTGCAGGCGT"
-#abidata="seq_results/QPSQ0664-CMV-for.ab1"
-
 def alignment(abidata=None, template=None, strand=1):  
     if abidata is not None:
         _abidata, seq_filename = abi_to_dict(abidata)
@@ -525,18 +521,15 @@ def visualize(alignment, region="aligned", fontsize=2):
     return fig
 
 if __name__ == "__main__":
-    import regex as re
-    
-    align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
-    _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename = align
-    fig          = visualize(align, region="all")
-    fig.show()
-    fig          = visualize(align, region="aligned")
-    fig.show()
 
     align2        = alignment(abidata="BE MAFB5.ab1", template="AGCCGGCTGGCTGCAGGCGT")
-    _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename = align2
     fig2          = visualize(align2, region = "all", fontsize = 5)
     fig2.show()
     fig2          = visualize(align2, region = "aligned", fontsize = 5)
     fig2.show()
+
+    align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
+    fig          = visualize(align, region="all")
+    fig.show()
+    fig          = visualize(align, region="aligned")
+    fig.show()
