@@ -151,6 +151,7 @@ from pysanger import *
 align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
 fig          = visualize_plotly(align, region="aligned")
 
+pio.write_html(fig, file="test_plotly_aligned.html", auto_open=True)
 pio.write_image(fig3, file="test_plotly_aligned.png")
 ```
 
