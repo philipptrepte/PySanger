@@ -1,8 +1,5 @@
-import os 
-import sys 
 from Bio import SeqIO
 from Bio import pairwise2
-from Bio.pairwise2 import format_alignment
 from Bio.Seq import Seq
 from snapgene_reader import snapgene_file_to_dict
 import matplotlib
@@ -10,7 +7,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd 
 import numpy as np
-#import logomaker
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
 
 matplotlib.rcParams['font.family']       = 'sans-serif'
 matplotlib.rcParams['font.sans-serif']   = ["Arial","DejaVu Sans","Lucida Grande","Verdana"]
@@ -136,6 +135,58 @@ def _colorbar(ax, ref, matches=None, char=True, fontsize=2):
     ax.spines["top"].set_visible(False)
     #ax.patch.set_alpha(0.0)
     return ax
+
+def _colorbar_plotly(ref, matches=None, char=True, fontsize=12):
+    bars = []
+    annotations = []
+    p = 0
+
+    if matches is None:
+        for c in ref:
+            bars.append(go.Bar(
+                x=[p],
+                y=[0.9],
+                width=1.0,
+                marker=dict(color='white', line=dict(color='#BBBBBB', width=0.5)),
+                showlegend=False
+            ))
+            if char:
+                annotations.append(dict(
+                    x=p,
+                    y=0.45,
+                    text=c,
+                    showarrow=False,
+                    font=dict(size=fontsize),
+                    xanchor='center',
+                    yanchor='middle'
+                ))
+            p += 1
+    else:
+        for m, c in zip(matches, ref):
+            color = 'red' if m == -1 else 'white'
+            alpha = 0.5 if m == -1 else 1.0
+            bars.append(go.Bar(
+                x=[p],
+                y=[0.9],
+                width=1.0,
+                marker=dict(color=color, opacity=alpha, line=dict(color='#BBBBBB', width=0.5)),
+                showlegend=False
+            ))
+            if char:
+                annotations.append(dict(
+                    x=p,
+                    y=0.45,
+                    text=c,
+                    showarrow=False,
+                    font=dict(size=fontsize),
+                    xanchor='center',
+                    yanchor='middle'
+                ))
+            p += 1
+
+    fig = go.Figure(data=bars)
+
+    return fig, annotations
 
 def alignment(abidata=None, template=None, strand=1):  
     if abidata is not None:
@@ -520,6 +571,211 @@ def visualize(alignment, region="aligned", fontsize=2):
     #plt.tight_layout() # Adjust layout to ensure subplots fit into the figure area
     return fig
 
+def visualize_plotly(alignment, region="aligned", fontsize=2):
+    _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename = alignment
+
+    if region == "all":
+        tasubject  = asubject
+        tatemplate = atemplate
+        fig_height = 600
+    elif region == "aligned":
+        if(min(len(sequence), len(subject)) < 100):
+            fig_width = 500
+        else:
+            fig_width = 2000
+        if ts == 0 and te == 0:
+            tasubject  = asubject[ss:len(asubject) - se]
+            tatemplate = atemplate[ss:len(atemplate) - se]
+            matches   = matches[ss:len(asubject) - se]
+        elif ts != 0 and te != 0:
+            tasubject  = asubject[ts:len(asubject) - te]
+            tatemplate = atemplate[ts:len(atemplate) - te]
+            matches   = matches[ts:len(asubject) - te]
+        fig_height = 600
+    else:
+        raise ValueError("Invalid region. Please provide 'all' or 'aligned'.")
+
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, row_heights=[0.2, 0.6, 0.2], specs=[[{"secondary_y": False}], [{"secondary_y": True}], [{"secondary_y": False}]])
+
+    # Determine tick spacing based on the length of the sequences
+    if region == "all":
+        tlength = len(sequence)
+    elif region == "aligned":
+        tlength = len(tatemplate)
+    if tlength < 100:
+        ttick_space = 10
+    elif tlength < 200:
+        ttick_space = 20
+    elif tlength < 500:
+        ttick_space = 50
+    elif tlength < 1000:
+        ttick_space = 50
+    elif tlength < 2500:
+        ttick_space = 100    
+    else:
+        ttick_space = 250
+    if ttick_space > len(sequence):
+        if len(sequence) < 100:
+            ttick_space = 10
+        elif len(sequence) < 200:
+            ttick_space = 20
+        elif len(sequence) < 500:
+            ttick_space = 50
+        elif len(sequence) < 1000:
+            ttick_space = 50
+        elif len(sequence) < 2500:
+            ttick_space = 100    
+
+    if tatemplate is not None:
+        ax, annotations1 = _colorbar_plotly(tatemplate, matches=matches, char=True, fontsize=10)
+        for annotation in annotations1:
+            annotation.update(dict(xref='x1', yref='y1'))  # Ensure annotations reference the first subplot
+            fig.add_annotation(annotation)
+        tnum = 0
+        if region == "all":
+            if ts != 0:
+                ss = ts
+                ts = 0
+            elif ts == 0:
+                ts = ss
+                ss = 0
+            tticks      = [] 
+            tticklabels = [] 
+            for letter in tatemplate:
+                if (tnum) % ttick_space == 0: 
+                    tticks.append(ts + tnum) 
+                    tticklabels.append(str(tnum))
+                    tnum += 1
+                if letter == "-":
+                    pass 
+                else:
+                    tnum += 1 
+        elif region == "aligned":
+            tticks      = [0.5]
+            tticklabels = [ts]
+            for letter in tatemplate:
+                if (tnum+1) % ttick_space == 0: 
+                    tticks.append(tnum+0.5) 
+                    tticklabels.append(str(ts+tnum+1))
+                    tnum += 1
+                if letter == "-":
+                    pass 
+                else:
+                    tnum += 1 
+        
+        for trace in ax.data:
+            fig.add_trace(trace, row=1, col=1)
+        
+        fig.update_layout(
+            xaxis1=dict(showgrid=False, zeroline=False, tickvals=tticks, ticktext=tticklabels, showticklabels = True, side='top'),
+            yaxis1=dict(showticklabels=False, showgrid=False, zeroline=False, title_text=name),
+            margin=dict(l=0, r=0, t=0, b=0),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)'
+        )
+                
+    else:
+        raise ValueError("Invalid template. No template sequence provided. Please check alignment.")
+    
+    if region == "all":
+        quality = adjust_quality_scores(tasubject, quality_scores = _abidata["conf"])
+    elif region == "aligned":
+        quality = adjust_quality_scores(tasubject, quality_scores = _abidata["conf"])
+    
+    if region == "all":
+        fig.add_trace(go.Bar(x=list(range(len(tasubject))), y=quality, marker_color="#F7F7FF", marker_line_color="#BBBBBB", marker_line_width=0.5), row=2, col=1)
+    elif region == "aligned":
+        if ts == 0 and te == 0:
+            fig.add_trace(go.Bar(x=list(range(len(tasubject))), y=quality[ss:-se], marker_color="#F7F7FF", marker_line_color="#BBBBBB", marker_line_width=0.5), row=2, col=1)
+        elif ts != 0 and te != 0:
+            fig.add_trace(go.Bar(x=list(range(len(tasubject))), y=quality, marker_color="#F7F7FF", marker_line_color="#BBBBBB", marker_line_width=0.5), row=2, col=1)
+    
+    if region == "all":
+        min_length = min(len(tvalues), len(avalues), len(gvalues), len(cvalues))
+        positions = np.linspace(-0.5, (min_length / 5) - 0.5, min_length).tolist()
+        fig.add_trace(go.Scatter(x=positions, y=tvalues, mode='lines', line=dict(color="#FC58FE", width=1)), row=2, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=positions, y=avalues, mode='lines', line=dict(color="#33CC33", width=1)), row=2, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=positions, y=gvalues, mode='lines', line=dict(color="#303030", width=1)), row=2, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=positions, y=cvalues, mode='lines', line=dict(color="#395CC5", width=1)), row=2, col=1, secondary_y=True)
+        combined_values = tvalues + avalues + gvalues + cvalues
+    elif region == "aligned":
+        if ts == 0 and te == 0:
+            _te = -5 * se
+            ts = ss
+        elif ts !=0 and te != 0:
+            _te = -5 * te
+        min_length = min(len(tvalues[5 * ts:_te]), len(avalues[5 * ts:_te]), len(gvalues[5 * ts:_te]), len(cvalues[5 * ts:_te]))
+        positions = np.linspace(-0.5, (min_length / 5) - 0.5, min_length).tolist()
+        fig.add_trace(go.Scatter(x=positions, y=tvalues[5 * ts:5 * ts + min_length], mode='lines', line=dict(color="#FC58FE", width=1)), row=2, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=positions, y=avalues[5 * ts:5 * ts + min_length], mode='lines', line=dict(color="#33CC33", width=1)), row=2, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=positions, y=gvalues[5 * ts:5 * ts + min_length], mode='lines', line=dict(color="#303030", width=1)), row=2, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=positions, y=cvalues[5 * ts:5 * ts + min_length], mode='lines', line=dict(color="#395CC5", width=1)), row=2, col=1, secondary_y=True)
+        combined_values = tvalues[5 * ss:5 * ss + min_length] + avalues[5 * ss:5 * ss + min_length] + gvalues[5 * ss:5 * ss + min_length] + cvalues[5 * ss:5 * ss + min_length]
+
+    fig.update_yaxes(title_text="Quality", row=2, col=1)
+    fig.update_yaxes(title_text="Peak height", row=2, col=1, secondary_y=True)
+
+    if region == "all":
+        slength = len(subject)
+    elif region == "aligned":
+        slength = len(tasubject)
+    if slength < 100:
+        stick_space = 10
+    elif slength < 200:
+        stick_space = 20
+    elif slength < 500:
+        stick_space = 50
+    elif slength < 1000:
+        stick_space = 100
+    elif slength < 2500:
+        stick_space = 250    
+    else:
+        stick_space = 500
+    ax3, annotations3 = _colorbar_plotly(tasubject, matches=matches, char=True, fontsize=10)
+    for annotation in annotations3:
+        annotation.update(dict(xref='x3', yref='y4'))  # Update xref and yref to refer to the third subplot
+        fig.add_annotation(annotation)
+        
+    snum = 0 
+    if region == "all":
+        sticks      = [ss] 
+        sticklabels = [ss] 
+        for letter in tasubject:
+            if (ss+snum+1) % stick_space == 0: 
+                sticks.append(ss+snum+1) 
+                sticklabels.append(str(ss+snum+1))
+                snum += 1
+            if letter == "-":
+                pass 
+            else:
+                snum += 1 
+    elif region == 'aligned':
+        if ts != 0 and te != 0:
+            ts = ss
+        sticks      = [0.5] 
+        sticklabels = [ss]
+        for letter in tasubject:
+            if (ts + snum+1) % stick_space == 0: 
+                sticks.append(snum+0.5) 
+                sticklabels.append(str(ss+snum+1))
+            if letter == "-":
+                pass 
+            else:
+                snum += 1
+
+    for trace in ax3.data:
+            fig.add_trace(trace, row=3, col=1)
+    fig.update_layout(
+        xaxis3=dict(showgrid=False, zeroline=False, tickvals=sticks, ticktext=sticklabels, showticklabels = True, side='bottom'),
+        yaxis4=dict(showticklabels=False, showgrid=False, zeroline=False, title_text=seq_filename),
+        margin=dict(l=0, r=0, t=0, b=0),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
+    )    
+
+    fig.update_layout(height=fig_height, showlegend=False)
+    return fig
+
 if __name__ == "__main__":
 
     align2        = alignment(abidata="BE MAFB5.ab1", template="AGCCGGCTGGCTGCAGGCGT")
@@ -533,3 +789,6 @@ if __name__ == "__main__":
     fig.show()
     fig          = visualize(align, region="aligned")
     fig.show()
+
+    fig3 = visualize_plotly(align2, region="aligned")
+    fig3.show()

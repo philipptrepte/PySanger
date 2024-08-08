@@ -5,6 +5,7 @@ __pycache__/
 
 # Mac OS X
 .DS_Store
+~$*.xlsx
 
 # C extensions
 *.so

@@ -12,7 +12,7 @@ This repository has been adapted from [ponnhide/PySanger](https://github.com/pon
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
 	
-	conda install matplotlib seaborn numpy biopython pandas logomaker snapgene-reader
+	conda install matplotlib seaborn plotly numpy biopython pandas logomaker snapgene-reader python-kaleido
 	```
 
 	```sh
@@ -93,7 +93,7 @@ This repository has been adapted from [ponnhide/PySanger](https://github.com/pon
 	**Return**
 	_list_
 
-- **visualize**_`(alignment=tuple, strand=int, fig=matplolib.pyplot.figure)`_ 
+- **visualize**_`(alignment=tuple, region=str, fig=matplolib.pyplot.figure)`_ 
 	Visualize a sanger sequencing result. 
 	
 	**Parameter**  	
@@ -103,6 +103,17 @@ This repository has been adapted from [ponnhide/PySanger](https://github.com/pon
 	
 	**Return**
 	_matplotlib.figure.Figure_
+
+- **visualize_plotly**_`(alignment=tuple, region=str, fig=plotly.graph_objs._figure.Figure)`_
+  Visualize a sanger sequencing result interactively
+
+  **Parameter**
+
+  - **region**: *`str`* ("all" or "aligned", default: "aligned")
+	A region used for the visualization. If `all`, it will visualize the entire region of the `template` vector map and the `abidata` sequencing result. If `aligned`, it will visualize the minimum aligned region between the `template` and `abidata` sequencing result.
+	
+	**Return**
+	_plotly.graph_objs._figure.Figure_
 
 
 ## Example usage 
@@ -116,10 +127,10 @@ from pysanger import *
 align        = alignment(abidata="BE MAFB5.ab1", template="AGCCGGCTGGCTGCAGGCGT")
 fig	         = visualize(align, region = "aligned", fontsize = 5)
 
-fig.savefig("test_aligned.pdf", bbox_inches="tight") 
+fig.savefig("test_aligned.png", bbox_inches="tight") 
 ```
 
-![test_aligned.pdf](test_aligned.pdf)
+![test_aligned.png](test_aligned.png)
 
 
 ### region = "all"
@@ -128,8 +139,19 @@ from pysanger import *
 align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
 fig          = visualize(align, region="all")
 
-fig.savefig("test_all.pdf", bbox_inches="tight") 
+fig.savefig("test_all.png", bbox_inches="tight") 
 ```
 
-![test_all.pdf](test_all.pdf)
+![test_all.png](test_all.png)
 
+
+### interactive PyPlot .html files
+``` python
+from pysanger import *
+align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
+fig          = visualize_plotly(align, region="all")
+
+pio.write_image(fig3, file="test_plotly_aligned.png")
+```
+
+![test_plotly_aligned.png](test_plotly_aligned.png)
