@@ -1,5 +1,5 @@
 from Bio import SeqIO
-from Bio import pairwise2
+from Bio.Align import PairwiseAligner
 from Bio.Seq import Seq
 from snapgene_reader import snapgene_file_to_dict
 import matplotlib
@@ -11,18 +11,38 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
 
-matplotlib.rcParams['font.family']       = 'sans-serif'
-matplotlib.rcParams['font.sans-serif']   = ["Arial","DejaVu Sans","Lucida Grande","Verdana"]
-matplotlib.rcParams['figure.figsize']    = [3,3]
-matplotlib.rcParams['font.size']         = 10
-matplotlib.rcParams["axes.labelcolor"]   = "#000000"
-matplotlib.rcParams["axes.linewidth"]    = 1.0 
-matplotlib.rcParams["xtick.major.width"] = 1.0
-matplotlib.rcParams["ytick.major.width"] = 1.0
+#matplotlib.rcParams['font.family']       = 'sans-serif'
+#matplotlib.rcParams['font.sans-serif']   = ["Arial","DejaVu Sans","Lucida Grande","Verdana"]
+#matplotlib.rcParams['figure.figsize']    = [3,3]
+#matplotlib.rcParams['font.size']         = 10
+#matplotlib.rcParams["axes.labelcolor"]   = "#000000"
+#matplotlib.rcParams["axes.linewidth"]    = 1.0 
+#matplotlib.rcParams["xtick.major.width"] = 1.0
+#matplotlib.rcParams["ytick.major.width"] = 1.0
 
 _atgc_dict = {0:"A", 1:"T", 2:"G", 3:"C"}
 
 def abi_to_dict(filename):
+    """
+        Convert an ABI file to a dictionary containing sequencing data.
+
+        This function reads an ABI file and extracts the sequencing data, including confidence values and channel intensities,
+        and stores it in a dictionary format. The dictionary structure includes the following keys:
+        
+        - 'conf': A list of confidence values for each base position.
+        - 'channel': A nested dictionary containing intensity values for each base (A, T, G, C) at each position.
+        - '_channel': A nested dictionary containing intensity values for each base (A, T, G, C) at each position, including
+                                    neighboring positions.
+
+        Parameters:
+        - filename (str): The path to the ABI file.
+
+        Returns:
+        - abi_data (dict): The dictionary containing the extracted sequencing data.
+        - filename (str): The input filename.
+
+        """
+    
     record   = SeqIO.read(filename,'abi')
     abi_data = {"conf":[],
                 "channel":{"A":[],
@@ -71,14 +91,35 @@ def abi_to_dict(filename):
     return abi_data, filename
 
 def generate_consensusseq(abidata):
+    """
+    Generate a consensus sequence based on the given abidata.
+
+    Args:
+        abidata (dict): A dictionary containing the abidata.
+
+    Returns:
+        tuple: A tuple containing two strings. The first string is the consensus sequence,
+               and the second string is the reverse complement of the consensus sequence.
+    """
     consensus_seq = "" 
     
     for values in zip(abidata["channel"]["A"], abidata["channel"]["T"], abidata["channel"]["G"], abidata["channel"]["C"]):
         consensus_seq += _atgc_dict[values.index(max(values))]
      
-    return (consensus_seq, consensus_seq.translate(str.maketrans("ATGC","TACG"))[::-1]) 
+    #return (consensus_seq, consensus_seq.translate(str.maketrans("ATGC","TACG"))[::-1])
+    return (Seq(consensus_seq), Seq(consensus_seq).reverse_complement())
 
 def generate_pwm(abidata):
+    """
+    Generate a position weight matrix (PWM) based on the given abidata.
+
+    Args:
+        abidata (tuple): A tuple containing the abidata and seq_filename.
+
+    Returns:
+        pandas.DataFrame: The generated PWM as a pandas DataFrame.
+
+    """
     _abidata, seq_filename = abidata
     pwm = {"A":[], "T":[], "G":[], "C":[]} 
     for values in zip(_abidata["channel"]["A"], _abidata["channel"]["T"], _abidata["channel"]["G"], _abidata["channel"]["C"]):
@@ -98,9 +139,23 @@ def generate_pwm(abidata):
         pwm["C"].append(new_values[3])
     
     pwm=pd.DataFrame(pwm)
-    return pwm 
+    return pwm
 
 def _colorbar(ax, ref, matches=None, char=True, fontsize=2):
+    """
+    Add a color bar to the given axes object.
+
+    Parameters:
+    - ax (matplotlib.axes._axes.Axes): The axes object to which the color bar will be added.
+    - ref (list): A list of reference values.
+    - matches (list, optional): A list of match values. If provided, the color bar will be customized based on the matches.
+    - char (bool, optional): Whether to display characters on the color bar. Default is True.
+    - fontsize (int, optional): The font size of the characters on the color bar. Default is 2.
+
+    Returns:
+    - matplotlib.axes.Axes: The modified axes object.
+
+    """
     bars = ax.bar(list(range(len(ref))), [0.9] * (len(ref)), width=1.0, edgecolor="#BBBBBB", linewidth=0.5, align="edge",bottom=0.05)
     ax.set_xlim(0,len(ref))
     ax.set_ylim(0,1.00)
@@ -133,10 +188,21 @@ def _colorbar(ax, ref, matches=None, char=True, fontsize=2):
     ax.spines["bottom"].set_visible(False)
     ax.spines["left"].set_visible(False)
     ax.spines["top"].set_visible(False)
-    #ax.patch.set_alpha(0.0)
     return ax
 
 def _colorbar_plotly(ref, matches=None, char=True, fontsize=12):
+    """
+    Generate a color bar plot using Plotly.
+
+    Args:
+        ref (str): The reference sequence.
+        matches (list, optional): A list of matches. Default is None.
+        char (bool, optional): Whether to display characters on the color bar. Default is True.
+        fontsize (int, optional): The font size of the characters. Default is 12.
+
+    Returns:
+        tuple: A tuple containing the Plotly figure object and a list of annotations.
+    """
     bars = []
     annotations = []
     p = 0
@@ -189,6 +255,36 @@ def _colorbar_plotly(ref, matches=None, char=True, fontsize=12):
     return fig, annotations
 
 def alignment(abidata=None, template=None, strand=1):  
+    """
+    Perform sequence alignment between sequencing data and a reference sequence or a user-provided sequence.
+
+    Parameters:
+    - abidata (str): The path to the ABI file.
+    - template (str or file path): A reference sequence in GenBank (.gb), DNA (.dna), or XDna (.xdna) format, or a user-provided DNA sequence (str).
+    - strand (int): The strand to align the sequencing data to. Default is 1 (forward strand), -1 can be used for reverse strand alignment.
+
+    Returns:
+    - _abidata (dict): The extracted sequencing data from the ABI file from the abi_to_dict(filename) function.
+    - asubject (str): The aligned subject sequence.
+    - subject (str): The original subject sequence.
+    - atemplate (str): The aligned template sequence.
+    - sequence (str): The template sequence.
+    - matches (list): A list indicating the match status of each base pair in the alignment. 1 for match, -1 for mismatch, 0 for not aligned.
+    - ss (int): The number of gaps at the start of the subject sequence.
+    - se (int): The number of gaps at the end of the subject sequence.
+    - ts (int): The number of gaps at the start of the template sequence.
+    - te (int): The number of gaps at the end of the template sequence.
+    - avalues (list): The A channel values from the ABI file.
+    - tvalues (list): The T channel values from the ABI file.
+    - gvalues (list): The G channel values from the ABI file.
+    - cvalues (list): The C channel values from the ABI file.
+    - name (str): The name of the template sequence.
+    - seq_filename (str): The filename of the ABI file.
+
+    Raises:
+    - ValueError: If the ABI file is invalid or the template is invalid.
+
+    """
     if abidata is not None:
         _abidata, seq_filename = abi_to_dict(abidata)
     else:
@@ -203,17 +299,24 @@ def alignment(abidata=None, template=None, strand=1):
     if strand == 1: 
         subject = consensus_seq_set[0]
     
-    if strand == -1:
+    elif strand == -1:
         subject = consensus_seq_set[1] 
-        avalues, tvalues, gvalues, cvalues = tuple(map(lambda x:list(reversed(x)), tvalues, avalues, cvalues, gvalues)) 
-    
+        #avalues, tvalues, gvalues, cvalues = [list(reversed(x)) for x in (avalues, tvalues, gvalues, cvalues)]
+        avalues, tvalues, gvalues, cvalues = (
+            list(reversed(avalues)),
+            list(reversed(tvalues)),
+            list(reversed(gvalues)),
+            list(reversed(cvalues))
+        )
+        _abidata["conf"] = list(reversed(_abidata["conf"]))
+
     if isinstance(template, str) and template.endswith((".gb", ".dna", ".xdna")):
         print(f"Reading vector map {template} as template.")
         if template.endswith(".gb"):
             """Reads a .gb file and transforms all sequences to upper case."""
             with open(template, "r") as file:
                 sequence = SeqIO.read(file, "genbank")
-                sequence.seq = sequence.seq.upper()
+                sequence = str(sequence.seq).upper()
                 name = str(template)
                 #return sequence.seq, name
                 
@@ -221,7 +324,7 @@ def alignment(abidata=None, template=None, strand=1):
             """Reads a .dna file and transforms all sequences to upper case."""
             data = snapgene_file_to_dict(filepath=template)
             sequence = Seq(data["seq"])
-            sequence.seq = sequence.upper()
+            sequence = str(sequence).upper()
             name = str(template)
             #return sequence.seq, name
             
@@ -229,7 +332,7 @@ def alignment(abidata=None, template=None, strand=1):
             """Reads a .xdna file and transforms all sequences to upper case."""
             with open(template, "rb") as file:
                 sequence = next(XdnaIterator(file))
-                sequence.seq = sequence.seq.upper()
+                sequence = str(sequence.seq).upper()
                 name = str(template)
                 #return sequence.seq, name    
                 
@@ -245,16 +348,31 @@ def alignment(abidata=None, template=None, strand=1):
         raise ValueError("Invalid template. Please provide a DNA string ('ATGC') or a file path.") 
 
     if sequence is not None:
+        # Create a pairwise sequence aligner
+        aligner = PairwiseAligner()
+        
+        # Set alignment parameters
+        aligner.mode = 'global'
+        aligner.match_score = 2
+        aligner.mismatch_score = 0
+        aligner.open_gap_score = -10
+        aligner.extend_gap_score = -1
+        aligner.end_open_gap_score = 0
+        aligner.end_extend_gap_score = 0
+
         if name == "User-provided sequence":
             print(f"Aligning sequencing file `{seq_filename}` ({len(subject)} bp) to `{name}` ({len(sequence)} bp).")
-            alignments  = pairwise2.align.globalms(sequence, subject, 2, 0, -10, -1, penalize_end_gaps=False)
         
         elif name != "User-provided sequence":
             print(f"Aligning sequencing file `{seq_filename}` ({len(subject)} bp) to provided reference sequence `{name}` ({len(sequence)} bp).")
-            alignments = pairwise2.align.globalms(sequence, subject, 2, 0, -10, -1, penalize_end_gaps=False)
-
-        atemplate   = alignments[0][0].upper()
-        asubject    = alignments[0][1].upper()
+        
+        alignments  = aligner.align(subject, sequence)
+        #print(alignments[0])
+        print(f"Alignment score: {alignments[0].score}")
+        
+        atemplate   = alignments[0][1].upper()
+        asubject    = alignments[0][0].upper()
+        
 
         ts = 0 
         ss = 0 
@@ -345,9 +463,19 @@ def alignment(abidata=None, template=None, strand=1):
         tvalues = new_tvalues
         gvalues = new_gvalues
         cvalues = new_cvalues
-    return(_abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename)
+    return _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename, strand
 
 def adjust_quality_scores(tasubject, quality_scores):
+    """
+    Adjusts the quality scores by inserting placeholder values at the positions of insertions in the alignment.
+
+    Args:
+        tasubject (str): The alignment sequence where insertions are represented by '-'.
+        quality_scores (list): The list of quality scores corresponding to each base in the alignment.
+
+    Returns:
+        list: The adjusted quality scores with placeholder values inserted at the positions of insertions.
+    """
     # Identify the positions of the insertions in the alignment
     insertion_positions = [i for i, base in enumerate(tasubject) if base == '-']
     
@@ -358,20 +486,37 @@ def adjust_quality_scores(tasubject, quality_scores):
     
     return adjusted_quality_scores
 
-def visualize(alignment, region="aligned", fontsize=2):
-    _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename = alignment
+def visualize(alignment, region="aligned", fontsize=2, fig_width=None):
+    """
+    Visualizes the alignment data.
+
+    Args:
+        alignment (tuple): A tuple containing the alignment data from the alignment(abidata, template, strand) function.
+        region (str, optional): The region of the alignment to visualize. Can be either "all" or "aligned". Defaults to "aligned".
+        fontsize (float or int, optional): The font size for the visualization. Defaults to 2.
+        fig_width (float or int, optional): The width of the figure. Defaults to None. If None, the width is automatically determined based on the sequence length.
+
+    Returns:
+        matplotlib.figure.Figure: The generated figure.
+    """
+    _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename, strand = alignment
     plt.close("all")
 
+    assert isinstance(fontsize, (float, int)), f"fontsize must be a float or integer, not '{fontsize}'."
+    assert isinstance(fig_width, (float, int)) or fig_width is None, f"Figure width must be a float or integer, not '{fig_width}'."
+
     if region == "all":
+        if fig_width is None:
+            fig_width = 50
         tasubject  = asubject
         tatemplate = atemplate
-        fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(25, 3), gridspec_kw={'height_ratios': [1, 3, 1]})
+        fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(fig_width, 3), gridspec_kw={'height_ratios': [0.5, 3, 0.5]})
 
     elif region == "aligned":
         if(min(len(sequence), len(subject)) < 100):
             fig_width = 5
-        else:
-            fig_width = 20
+        elif fig_width is None:
+            fig_width = 50
         if ts == 0 and te == 0:
             tasubject  = asubject[ss:len(asubject) - se]
             tatemplate = atemplate[ss:len(atemplate) - se]
@@ -380,7 +525,7 @@ def visualize(alignment, region="aligned", fontsize=2):
             tasubject  = asubject[ts:len(asubject) - te]
             tatemplate = atemplate[ts:len(atemplate) - te]
             matches   = matches[ts:len(asubject) - te]
-        fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(fig_width, 3), gridspec_kw={'height_ratios': [1, 3, 1]})
+        fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(fig_width, 3), gridspec_kw={'height_ratios': [0.5, 3, 0.5]})
 
     else:
         raise ValueError("Invalid region. Please provide 'all' or 'aligned'.")
@@ -499,7 +644,8 @@ def visualize(alignment, region="aligned", fontsize=2):
         sns.lineplot(x=positions, y=gvalues[5 * ts:5 * ts + min_length], color="#303030", lw=1, ax=ax2X2)
         sns.lineplot(x=positions, y=cvalues[5 * ts:5 * ts + min_length], color="#395CC5", lw=1, ax=ax2X2)
 
-        combined_values = tvalues[5 * ss:5 * ss + min_length] + avalues[5 * ss:5 * ss + min_length] + gvalues[5 * ss:5 * ss + min_length] + cvalues[5 * ss:5 * ss + min_length]
+        #combined_values = tvalues[5 * ss:5 * ss + min_length] + avalues[5 * ss:5 * ss + min_length] + gvalues[5 * ss:5 * ss + min_length] + cvalues[5 * ss:5 * ss + min_length]
+        combined_values = tvalues[5 * ts:5 * ts + min_length] + avalues[5 * ts:5 * ts + min_length] + gvalues[5 * ts:5 * ts + min_length] + cvalues[5 * ts:5 * ts + min_length]
 
     ax2.set_xticklabels("")
     ax2.set_xticks([])
@@ -547,18 +693,32 @@ def visualize(alignment, region="aligned", fontsize=2):
             else:
                 snum += 1 
     elif region == 'aligned':
-        if ts != 0 and te != 0:
-            ts = ss
-        sticks      = [0.5] 
-        sticklabels = [ss]
-        for letter in tasubject:
-            if (ts + snum+1) % stick_space == 0: 
-                sticks.append(snum+0.5) 
-                sticklabels.append(str(ss+snum+1))
-            if letter == "-":
-                pass 
-            else:
-                snum += 1
+        if strand == 1:
+            if ts != 0 and te != 0:
+                ts = ss
+            sticks      = [0.5] 
+            sticklabels = [ss]
+            for letter in tasubject:
+                if (ts + snum+1) % stick_space == 0: 
+                    sticks.append(snum+0.5) 
+                    sticklabels.append(str(ss+snum+1))
+                if letter == "-":
+                    pass 
+                else:
+                    snum += 1
+        if strand == -1:
+            snum = len(subject)
+            ts = len(subject)
+            sticks = [snum]
+            sticklabels = [ss]
+            for letter in tasubject[::-1]:
+                if (snum) % stick_space == 0: 
+                    sticks.append(snum-0.5) 
+                    sticklabels.append(str(ts-snum+1))
+                if letter == "-":
+                    pass 
+                else:
+                    snum -= 1
     
 
     ax3.set_xticks(sticks) 
@@ -571,8 +731,24 @@ def visualize(alignment, region="aligned", fontsize=2):
     #plt.tight_layout() # Adjust layout to ensure subplots fit into the figure area
     return fig
 
-def visualize_plotly(alignment, region="aligned", fontsize=2):
-    _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename = alignment
+def visualize_plotly(alignment, region="aligned", fontsize=10):
+    """"
+    Generates a Plotly figure to visualize sequence alignment data.
+
+    Parameters:
+    - alignment (tuple): A tuple containing the alignment data from the alignment(abidata, template, strand) function.
+    - region (str): The region of the alignment to visualize. Can be either "all" or "aligned". Defaults to "aligned".
+    - fontsize (int): The font size for the plot annotations. Defaults to 10.
+
+    Returns:
+    - fig (plotly.graph_objects.Figure): The generated Plotly figure.
+
+    Raises:
+    - ValueError: If an invalid region is provided. Valid options are "all" or "aligned".
+    - ValueError: If no template sequence is provided in the alignment data.
+    """
+
+    _abidata, asubject, subject, atemplate, sequence, matches, ss, se, ts, te, avalues, tvalues, gvalues, cvalues, name, seq_filename, strand = alignment
 
     if region == "all":
         tasubject  = asubject
@@ -627,7 +803,7 @@ def visualize_plotly(alignment, region="aligned", fontsize=2):
             ttick_space = 100    
 
     if tatemplate is not None:
-        ax, annotations1 = _colorbar_plotly(tatemplate, matches=matches, char=True, fontsize=10)
+        ax, annotations1 = _colorbar_plotly(tatemplate, matches=matches, char=True, fontsize=fontsize)
         for annotation in annotations1:
             annotation.update(dict(xref='x1', yref='y1'))  # Ensure annotations reference the first subplot
             fig.add_annotation(annotation)
@@ -731,7 +907,7 @@ def visualize_plotly(alignment, region="aligned", fontsize=2):
         stick_space = 250    
     else:
         stick_space = 500
-    ax3, annotations3 = _colorbar_plotly(tasubject, matches=matches, char=True, fontsize=10)
+    ax3, annotations3 = _colorbar_plotly(tasubject, matches=matches, char=True, fontsize=fontsize)
     for annotation in annotations3:
         annotation.update(dict(xref='x3', yref='y4'))  # Update xref and yref to refer to the third subplot
         fig.add_annotation(annotation)
@@ -778,17 +954,19 @@ def visualize_plotly(alignment, region="aligned", fontsize=2):
 
 if __name__ == "__main__":
 
-    align2        = alignment(abidata="BE MAFB5.ab1", template="AGCCGGCTGGCTGCAGGCGT")
-    fig2          = visualize(align2, region = "all", fontsize = 5)
-    fig2.show()
-    fig2          = visualize(align2, region = "aligned", fontsize = 5)
+    align        = alignment(abidata="BE MAFB5.ab1", template="AGCCGGCTGGCTGCAGGCGT")
+    fig          = visualize(align, region = "all", fontsize = 5)
+    fig.show()
+    fig2         = visualize(align, region = "aligned", fontsize = 10)
     fig2.show()
 
-    align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
-    fig          = visualize(align, region="all")
-    fig.show()
-    fig          = visualize(align, region="aligned")
-    fig.show()
-
-    fig3 = visualize_plotly(align2, region="aligned")
+    align2        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna", strand = 1)
+    fig2          = visualize(align2, region="all")
+    fig2.show()
+    
+    align3        = alignment(abidata="seq_results/QPSQ0665-BGHR.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna", strand = -1)
+    fig3          = visualize(align3, region="aligned")
     fig3.show()
+
+    fig4 = visualize_plotly(align2, region="aligned")
+    fig4.show()
