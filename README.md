@@ -237,7 +237,6 @@ align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="t
 fig          = visualize_plotly(align, region="aligned")
 
 pio.write_html(fig, file="test_plotly_aligned.html", auto_open=True)
-pio.write_image(fig3, file="test_plotly_aligned.png")
 ```
 
 ![test_plotly_aligned.png](examples/test_plotly_aligned.png)
@@ -245,14 +244,21 @@ pio.write_image(fig3, file="test_plotly_aligned.png")
 
 ### Run and visualize batch alignments and create a summary table
 ``` python
-from batch_alignment import batch alignments, summarise_results, batch_visualization
+import pandas as pd
+from batch_alignment import batch_alignments, summarise_results, batch_visualization
 
 batch 			= batch_alignments(setup="seq_results/Sequencing_setup.xlsx", input_folder="seq_results", template_folder="templates")
 summary 		= summarise_results(batch)
 batch_visualization(batch, region="aligned", output_folder="output")
 
 print(summary)
-![2024-08-10_QPSQ0664_alignment.png](2024-08-10_QPSQ0664_alignment.png)
 ```
 
+**Alignment with chromatogram**
+
+![QPSQ0664_alignment.png](examples/QPSQ0664_alignment.png)
+
+**Summary Table**
+
+![summary_table.png](examples/summary_table.png)
 
