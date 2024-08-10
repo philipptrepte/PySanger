@@ -1,3 +1,4 @@
+import os
 from concurrent.futures import ProcessPoolExecutor
 from functions.helper import align_row
 from pysanger import visualize
@@ -32,7 +33,14 @@ def batch_alignments(setup="seq_results/Sequencing_setup.xlsx", input_folder="se
     # Create a list of all the sequencing files
     files = [f for f in os.listdir(input_folder) if f.endswith(".ab1")]
     
-    sequencing_files = [f.split("-", maxsplit=1)[0].split("_", maxsplit=1)[0] for f in files] # Extract the sequencing ID from the file name by splitting filenames by '-' or '_'
+    sequencing_files = []
+    for f in files:
+        try:
+            sequencing_file = f.split(".", maxsplit=1)[0].split("-", maxsplit=1)[0]
+            sequencing_files.append(sequencing_file)
+        except IndexError:
+            print(f"Filename '{f}' cannot be split by the expected '-' character into Sequencing_ID and Primer. `{f}` skipped.")
+            continue
     sequencing_values = np.unique(setup_file['Sequencing_ID'].values)
     # Identify sequencing files that are not in the sequencing ID list
     missing_sequencing_files = [seq for seq in sequencing_values if seq not in sequencing_files]
@@ -42,7 +50,14 @@ def batch_alignments(setup="seq_results/Sequencing_setup.xlsx", input_folder="se
         print(f"Missing sequencing files: {missing_sequencing_files}")
         assert False, "The Sequencing_ID column in the sequencing setup file must contain all the sequencing IDs in the input folder"
 
-    primer_files = [f.split(".", maxsplit=1)[0].split("-", maxsplit=1)[1] for f in files] # Extract the primer from the file name by splitting filenames by '.' and '-'
+    primer_files = []
+    for f in files:
+        try:
+            primer_file = f.split(".", maxsplit=1)[0].split("-", maxsplit=1)[1]
+            primer_files.append(primer_file)
+        except IndexError:
+            print(f"Filename '{f}' cannot be split by the expected '-' character into Sequencing_ID and Primer. `{f}` skipped.")
+            continue
     primer_values = np.unique(setup_file['Primer'].values)
     # Identify primers that are not in the primer list
     missing_primers = [primer for primer in primer_values if primer not in primer_files]
@@ -227,9 +242,8 @@ def batch_visualization(batch_alignments, region="aligned", output_folder="outpu
         print(f"Saving alignment chromatogram for {sample} to {output_folder}/{sample}_alignment.pdf")
         fig.savefig(f"{output_folder}/{datetime.datetime.now().strftime('%Y-%m-%d')}_{sample}_alignment.pdf")
     
-
 if __name__ == "__main__":
 
-    batch = batch_alignments()
+    batch = batch_alignments(setup="seq_results/Sequencing_setup.xlsx", input_folder="seq_results", template_folder="templates")
     summary = summarise_results(batch)
     batch_visualization(batch, region="aligned", output_folder="output")
