@@ -2,6 +2,12 @@
 
 This repository has been adapted from [ponnhide/PySanger](https://github.com/ponnhide/PySanger) to allow alignment of Sanger Sequencing files to vector maps with file endings .gb .dna or .xdna
 
+Alignments can be done in batches
+
+- from the **terminal** using `python batch_analysis.py --setup --input_folder --template_folder --region --output_folder` 
+  
+- or from within **python** using the `batch_alignments()`, `summarise_results()` and `batch_visualization()` functions.
+
 ## Installation
 1.  Install the following Python packages by  
 	
@@ -15,11 +21,20 @@ This repository has been adapted from [ponnhide/PySanger](https://github.com/pon
 	conda install matplotlib seaborn plotly numpy biopython pandas snapgene-reader python-kaleido openpyxl
 	```
 
+2. Clone GitHub repository
 	```sh
 	git clone https://github.com/philipptrepte/PySanger.git
 	```
 
-2.  Set PYTHONPATH to the directory where you cloned the repository.
+## Quick start for batch alignments and visualizations
+
+```sh
+conda activate PySanger
+
+python batch_analysis.py --setup "seq_results/Sequencing_setup.xlsx" --input_folder "seq_results" --template_folder "templates" --region "aligned" --output_folder "output"
+
+```
+
 
 ## API
 
@@ -199,14 +214,19 @@ This repository has been adapted from [ponnhide/PySanger](https://github.com/pon
 	- **template_folder**: *`str`*
 	The path to the folder containing the .dna, .xdna or .gb vector map templates.
 
+	**Return**
+	_tuple_
 
-## Example usage 
+
+# Example usage 
 
 Visualise peack intensities from a Sanger sequencing result. You can use the example by `ponnhide/PySanger` where you use as `abidate` the `.ab` file `BE MAFB5.ab1` and as `query` the sequence `AGCCGGCTGGCTGCAGGCGT`.
 
 Alternatively, can you as `abidata` the file `seq_results/QPSQ0664-CMV-for.ab1` and as `template` the vector map file `templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna`
 
-### region = "aligned"
+## Alignment and visualization of a single sequencing file
+
+### Visualize with `region = "aligned"`
 ```python
 from pysanger import * 
 align        = alignment(abidata="seq_results/BE MAFB5.ab1", template="AGCCGGCTGGCTGCAGGCGT")
@@ -218,7 +238,7 @@ fig.savefig("test_aligned.png", bbox_inches="tight")
 ![test_aligned.png](examples/test_aligned.png)
 
 
-### region = "all"
+### Visualize with `region = "all"`
 ``` python
 from pysanger import * 
 align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
@@ -230,7 +250,12 @@ fig.savefig("test_all.png", bbox_inches="tight")
 ![test_all.png](examples/test_all.png)
 
 
-### interactive PyPlot .html files
+## Alignment and interactive visualization of a single sequencing file
+
+**Caution**: interactive visualizations using plotly are relatively slow
+
+### Generate interactive PyPlot .html files
+
 ``` python
 from pysanger import *
 align        = alignment(abidata="seq_results/QPSQ0664-CMV-for.ab1", template="templates/QPPL0052_pcDNA3.1_mCitrine-C1-GW.dna")
@@ -242,23 +267,27 @@ pio.write_html(fig, file="test_plotly_aligned.html", auto_open=True)
 ![test_plotly_aligned.png](examples/test_plotly_aligned.png)
 
 
+## Batch alignments
+
 ### Run and visualize batch alignments and create a summary table
+
 ``` python
-import pandas as pd
 from batch_alignment import batch_alignments, summarise_results, batch_visualization
 
 batch 			= batch_alignments(setup="seq_results/Sequencing_setup.xlsx", input_folder="seq_results", template_folder="templates")
 summary 		= summarise_results(batch)
 batch_visualization(batch, region="aligned", output_folder="output")
-
-print(summary)
 ```
 
 **Alignment with chromatogram**
 
+`examples/QPSQ0664_alignment.png`
+
 ![QPSQ0664_alignment.png](examples/QPSQ0664_alignment.png)
 
 **Summary Table**
+
+`examples/summary_table.png`
 
 ![summary_table.png](examples/summary_table.png)
 

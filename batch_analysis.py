@@ -1,4 +1,5 @@
 import os
+import argparse
 from concurrent.futures import ProcessPoolExecutor
 from functions.helper import align_row
 from pysanger import visualize
@@ -191,6 +192,9 @@ def summarise_results(batch_alignments, output_folder="output"):
     alignment_df = pd.DataFrame.from_dict(summaries, orient='index')
     merged_df = pd.merge(setup, alignment_df, on='Sequencing_ID')
 
+    # Ensure the output folder exists
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     output_file = f"{output_folder}/{datetime.datetime.now().strftime('%Y-%m-%d')}_alignment_summary.xlsx"
     merged_df.to_excel(output_file, index=False)
     wb = openpyxl.load_workbook(output_file)
@@ -236,14 +240,42 @@ def batch_visualization(batch_alignments, region="aligned", output_folder="outpu
     Returns:
         None
     """
+    # Ensure the output folder exists
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     alignments, setup = batch_alignments
     for sample, alignment in alignments.items():
         fig = visualize(alignment, region=region, fig_width=100, fontsize=5)
         print(f"Saving alignment chromatogram for {sample} to {output_folder}/{sample}_alignment.pdf")
         fig.savefig(f"{output_folder}/{datetime.datetime.now().strftime('%Y-%m-%d')}_{sample}_alignment.pdf")
     
+def main(setup="seq_results/Sequencing_setup.xlsx", input_folder="seq_results", template_folder="templates", region="aligned", output_folder="output"):
+    """
+    Main function to align sequencing files to template files, summarize the alignment results, and visualize the alignments.
+
+    Args:
+        setup (str): The path to the sequencing setup file (default: "seq_results/Sequencing_setup.xlsx").
+        input_folder (str): The path to the folder containing the sequencing files (default: "seq_results").
+        template_folder (str): The path to the folder containing the template files (default: "templates").
+        output_folder (str): The folder where the alignment summary and chromatograms will be saved (default: "output").
+        region (str): The region of the alignment to visualize (default: "aligned").
+
+    Returns:
+        None
+    """
+    batch = batch_alignments(setup=setup, input_folder=input_folder, template_folder=template_folder)
+    summary = summarise_results(batch, output_folder=output_folder)
+    batch_visualization(batch, region=region, output_folder=output_folder)
+
 if __name__ == "__main__":
 
-    batch = batch_alignments(setup="seq_results/Sequencing_setup.xlsx", input_folder="seq_results", template_folder="templates")
-    summary = summarise_results(batch)
-    batch_visualization(batch, region="aligned", output_folder="output")
+    parser = argparse.ArgumentParser(description="Run batch alignment analysis.")
+    parser.add_argument("--setup", required=True, help="Path to the setup file.")
+    parser.add_argument("--input_folder", required=True, help="Path to the input folder.")
+    parser.add_argument("--template_folder", required=True, help="Path to the template folder.")
+    parser.add_argument("--region", required=True, help="Region for visualization.")
+    parser.add_argument("--output_folder", required=True, help="Path to the output folder.")
+    
+    args = parser.parse_args()
+    
+    main(args.setup, args.input_folder, args.template_folder, args.region, args.output_folder)
