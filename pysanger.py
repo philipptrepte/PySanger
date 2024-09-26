@@ -252,15 +252,13 @@ def visualize(alignment, region="aligned", fontsize=2, fig_width=None):
         fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(fig_width, 3), gridspec_kw={'height_ratios': [0.5, 3, 0.5]})
 
     elif region == "aligned":
-        if(min(len(sequence), len(subject)) < 100):
-            fig_width = 5
-        elif fig_width is None:
-            fig_width = 50
+        if fig_width is None:
+            raise ValueError("Figure width must be provided when visualizing the aligned region.")
         if ts == 0 and te == 0:
             tasubject  = asubject[ss:len(asubject) - se]
             tatemplate = atemplate[ss:len(atemplate) - se]
             matches   = matches[ss:len(asubject) - se]
-        elif ts != 0 and te != 0:
+        else:
             tasubject  = asubject[ts:len(asubject) - te]
             tatemplate = atemplate[ts:len(atemplate) - te]
             matches   = matches[ts:len(asubject) - te]
@@ -363,25 +361,25 @@ def visualize(alignment, region="aligned", fontsize=2, fig_width=None):
     if region == "all":
         min_length = min(len(tvalues), len(avalues), len(gvalues), len(cvalues))
         positions = np.linspace(-0.5, (min_length / 5) - 0.5, min_length).tolist()
-        sns.lineplot(x=positions, y=tvalues, color="#FC58FE", lw=1, ax=ax2X2)
-        sns.lineplot(x=positions, y=avalues, color="#33CC33", lw=1, ax=ax2X2)
-        sns.lineplot(x=positions, y=gvalues, color="#303030", lw=1, ax=ax2X2)
-        sns.lineplot(x=positions, y=cvalues, color="#395CC5", lw=1, ax=ax2X2)
+        sns.lineplot(x=positions, y=tvalues, color="#FC58FE", lw=0.5, ax=ax2X2)
+        sns.lineplot(x=positions, y=avalues, color="#33CC33", lw=0.5, ax=ax2X2)
+        sns.lineplot(x=positions, y=gvalues, color="#303030", lw=0.5, ax=ax2X2)
+        sns.lineplot(x=positions, y=cvalues, color="#395CC5", lw=0.5, ax=ax2X2)
         combined_values = tvalues + avalues + gvalues + cvalues
 
     elif region == "aligned":
         if ts == 0 and te == 0:
             _te = -5 * se
             ts = ss
-        elif ts !=0 and te != 0:
+        else:
             _te = -5 * te
         # Ensure the lengths of the arrays are consistent
         min_length = min(len(tvalues[5 * ts:_te]), len(avalues[5 * ts:_te]), len(gvalues[5 * ts:_te]), len(cvalues[5 * ts:_te]))
         positions = np.linspace(-0.5, (min_length / 5) - 0.5, min_length).tolist()
-        sns.lineplot(x=positions, y=tvalues[5 * ts:5 * ts + min_length], color="#FC58FE", lw=1, ax=ax2X2)
-        sns.lineplot(x=positions, y=avalues[5 * ts:5 * ts + min_length], color="#33CC33", lw=1, ax=ax2X2)
-        sns.lineplot(x=positions, y=gvalues[5 * ts:5 * ts + min_length], color="#303030", lw=1, ax=ax2X2)
-        sns.lineplot(x=positions, y=cvalues[5 * ts:5 * ts + min_length], color="#395CC5", lw=1, ax=ax2X2)
+        sns.lineplot(x=positions, y=tvalues[5 * ts:5 * ts + min_length], color="#FC58FE", lw=0.5, ax=ax2X2)
+        sns.lineplot(x=positions, y=avalues[5 * ts:5 * ts + min_length], color="#33CC33", lw=0.5, ax=ax2X2)
+        sns.lineplot(x=positions, y=gvalues[5 * ts:5 * ts + min_length], color="#303030", lw=0.5, ax=ax2X2)
+        sns.lineplot(x=positions, y=cvalues[5 * ts:5 * ts + min_length], color="#395CC5", lw=0.5, ax=ax2X2)
 
         #combined_values = tvalues[5 * ss:5 * ss + min_length] + avalues[5 * ss:5 * ss + min_length] + gvalues[5 * ss:5 * ss + min_length] + cvalues[5 * ss:5 * ss + min_length]
         combined_values = tvalues[5 * ts:5 * ts + min_length] + avalues[5 * ts:5 * ts + min_length] + gvalues[5 * ts:5 * ts + min_length] + cvalues[5 * ts:5 * ts + min_length]

@@ -245,7 +245,7 @@ def batch_visualization(batch_alignments, region="aligned", output_folder="outpu
         os.makedirs(output_folder)
     alignments, setup = batch_alignments
     for sample, alignment in alignments.items():
-        fig = visualize(alignment, region=region, fig_width=100, fontsize=5)
+        fig = visualize(alignment, region=region, fig_width=100, fontsize=4)
         print(f"Saving alignment chromatogram for {sample} to {output_folder}/{sample}_alignment.pdf")
         fig.savefig(f"{output_folder}/{datetime.datetime.now().strftime('%Y-%m-%d')}_{sample}_alignment.pdf")
     
