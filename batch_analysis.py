@@ -75,7 +75,7 @@ def batch_alignments(setup="seq_results/Sequencing_setup.xlsx", input_folder="se
     template_names = [f.split("_", maxsplit=1)[1] for f in templates] # Extract the template names from the file name by splitting filenames by '_'
     template_values = np.unique(setup_file['Template'].values)
     # Identify template files that are not in the template ID list
-    missing_template_ids = [template for template in template_ids if template not in template_values]
+    missing_template_ids = [template for template in template_values if template not in template_ids]
 
     # If there are missing template IDs, print them and raise an assertion error
     if missing_template_ids:
